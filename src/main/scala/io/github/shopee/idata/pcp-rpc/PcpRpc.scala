@@ -1,7 +1,7 @@
 package io.github.shopee.idata.pcprpc
 
 import io.github.shopee.idata.saio.{ AIO, AIOConnection, ConnectionHandler }
-import io.github.shopee.idata.pcp.{ Sandbox, BoxFun }
+import io.github.shopee.idata.pcp.{ BoxFun, Sandbox }
 import scala.concurrent.{ ExecutionContext, Future }
 
 object PcpRpc {

@@ -1,6 +1,7 @@
 package io.github.shopee.idata.pcprpc
 
-import io.github.shopee.idata.pcp.{ BoxFun, PcpServer, Sandbox, PcpClient }
+import io.github.shopee.idata.taskqueue.TimeoutScheduler
+import io.github.shopee.idata.pcp.{ BoxFun, CallResult, PcpClient, PcpServer, Sandbox }
 import java.net.InetSocketAddress
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ Await, Future, Promise, duration }
@@ -14,18 +15,44 @@ class PcpRpcTest extends org.scalatest.FunSuite {
         val a = params(0).asInstanceOf[Int]
         val b = params(1).asInstanceOf[Int]
         a + b
-      })
+      }),
+      "testFuture" -> Sandbox.toSanboxFun((params: List[Any], pcs: PcpServer) => {
+        TimeoutScheduler.sleep(100) map { _ =>
+          123
+        }
+      }),
     )
   )
 
-  test("base") {
+  def testCallRpcServer(list: CallResult, expect: Any, clientNum: Int = 100) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
-    val p = new PcpClient()
 
-    val client = Await.result(PcpRpc.getPCClient(port = server.getLocalAddress().asInstanceOf[InetSocketAddress].getPort()), 15.seconds)
+    val clientCall = () => {
+      val client = Await.result(
+        PcpRpc.getPCClient(
+          port = server.getLocalAddress().asInstanceOf[InetSocketAddress].getPort()
+        ),
+        15.seconds
+      )
+      client.call(list) map { result =>
+        assert(result == expect)
+      }
+    }
 
-    assert(Await.result(client.call(p.call("add", 1, 2)), 15.seconds) == 3)
+    Await.result(Future.sequence(1 to clientNum map { _ =>
+      clientCall()
+    }), 15.seconds)
 
     server.close()
+  }
+
+  test("base") {
+    val p = new PcpClient()
+    testCallRpcServer(p.call("add", 1, 2), 3)
+  }
+
+  test("future") {
+    val p = new PcpClient()
+    testCallRpcServer(p.call("testFuture"), 123)
   }
 }
