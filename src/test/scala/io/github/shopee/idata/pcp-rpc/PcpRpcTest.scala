@@ -35,7 +35,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
     val clientCall = () => {
       val client = Await.result(
         PcpRpc.getPCClient(
-          port = server.getLocalAddress().asInstanceOf[InetSocketAddress].getPort()
+          port = server.getPort()
         ),
         15.seconds
       )
@@ -57,7 +57,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
     val clientCall = () => {
       val client = Await.result(
         PcpRpc.getPCClient(
-          port = server.getLocalAddress().asInstanceOf[InetSocketAddress].getPort()
+          port = server.getPort()
         ),
         15.seconds
       )
