@@ -160,18 +160,18 @@ object ComputingConnection {
 
       // send text to remote
       // TODO support streamming
-      packageProtocol.sendPackage(conn, JSON.stringify(data))
+      packageProtocol.sendPackage(conn, JSON.stringify(data)) flatMap { _ =>
+        val p = Promise[Any]()
+        remoteCallMap(id) = p
 
-      val p = Promise[Any]()
-      remoteCallMap(id) = p
-
-      TimeoutScheduler.withTimeout(p.future, timeout / 1000 seconds) map { ret =>
-        remoteCallMap.remove(id)
-        ret
-      } recover {
-        case e: Exception => {
+        TimeoutScheduler.withTimeout(p.future, timeout / 1000 seconds) map { ret =>
           remoteCallMap.remove(id)
-          throw e
+          ret
+        } recover {
+          case e: Exception => {
+            remoteCallMap.remove(id)
+            throw e
+          }
         }
       }
     }

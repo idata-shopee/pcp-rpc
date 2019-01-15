@@ -91,5 +91,10 @@ class PcpRpcTest extends org.scalatest.FunSuite {
   test("exception") {
     val p = new PcpClient()
     testCallRpcServerFail(p.call("testException"))
+  } 
+
+  test("missing box function") {
+    val p = new PcpClient()
+    testCallRpcServerFail(p.call("fakkkkkkkkkk"))
   }
 }
