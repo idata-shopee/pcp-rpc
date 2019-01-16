@@ -1,6 +1,6 @@
 name := "pcp-rpc"
 organization := "io.github.idata-shopee"
-version := "0.0.2"
+version := "0.0.3"
 scalaVersion := "2.12.4"
 
 useGpg := true 
@@ -23,6 +23,9 @@ libraryDependencies ++= Seq(
 
   // saio
   "io.github.idata-shopee" %% "saio" % "0.0.2",
+
+  // spool lib
+  "io.github.idata-shopee" %% "spool" % "0.0.1",
 
   // test suite
   "org.scalatest" %% "scalatest" % "3.0.1" % Test

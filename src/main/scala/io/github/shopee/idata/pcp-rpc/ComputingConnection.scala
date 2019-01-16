@@ -113,8 +113,8 @@ object ComputingConnection {
         }
       } else {
         KLog.logErr("missing-pkt-id",
-                    new Exception(s"can not find id $commandPkt.id for purecall response data."))
-        throw new Exception(s"can not find id $commandPkt.id for purecall response data.")
+                    new Exception(s"can not find id ${commandPkt.id} for purecall response data."))
+        throw new Exception(s"can not find id ${commandPkt.id} for purecall response data.")
       }
 
     private val conn: ConnectionHandler = ConnectionHandler(
@@ -149,6 +149,11 @@ object ComputingConnection {
 
     def getConnectionHandler() = conn
 
+    def close() = {
+      remoteCallMap.clear()
+      conn.close(null)
+    }
+
     def call(list: CallResult, timeout: Int = 2 * 60 * 1000): Future[_] =
       callRemote(pcpClient.toJson(list), timeout)
 
@@ -158,20 +163,20 @@ object ComputingConnection {
       val id   = randomUUID().toString
       val data = CommandPkt(id, REQUEST_C_TYPE, new CommandData(command))
 
+      val p = Promise[Any]()
+      remoteCallMap(id) = p
+
       // send text to remote
       // TODO support streamming
       packageProtocol.sendPackage(conn, JSON.stringify(data)) flatMap { _ =>
-        val p = Promise[Any]()
-        remoteCallMap(id) = p
-
         TimeoutScheduler.withTimeout(p.future, timeout / 1000 seconds) map { ret =>
           remoteCallMap.remove(id)
           ret
-        } recover {
-          case e: Exception => {
-            remoteCallMap.remove(id)
-            throw e
-          }
+        }
+      } recover {
+        case e: Exception => {
+          remoteCallMap.remove(id)
+          throw e
         }
       }
     }

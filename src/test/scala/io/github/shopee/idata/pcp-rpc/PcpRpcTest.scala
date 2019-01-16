@@ -29,53 +29,80 @@ class PcpRpcTest extends org.scalatest.FunSuite {
     )
   )
 
-  def testCallRpcServer(list: CallResult, expect: Any, clientNum: Int = 100) = {
+  def testCallRpcServer(list: CallResult,
+                        expect: Any,
+                        clientNum: Int = 30,
+                        poolCount: Int = 100) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
-      val client = Await.result(
-        PcpRpc.getPCClient(
-          port = server.getPort()
-        ),
-        15.seconds
+      val pool = PcpRpc.getPCClientPool(
+        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
       )
-      client.call(list) map { result =>
-        assert(result == expect)
+      Future.sequence((1 to poolCount map { _ =>
+        pool.call(list) map { result =>
+          assert(result == expect)
+        }
+      }).toList) map { _ =>
+        pool.clean()
+      } recover {
+        case e: Exception => {
+          pool.clean()
+          throw e
+        }
       }
     }
 
-    Await.result(Future.sequence(1 to clientNum map { _ =>
-      clientCall()
-    }), 15.seconds)
-
-    server.close()
+    try {
+      Await.result(Future.sequence(1 to clientNum map { _ =>
+        clientCall()
+      }), 15.seconds)
+    } finally {
+      server.close()
+    }
   }
 
-  def testCallRpcServerFail(list: CallResult, clientNum: Int = 100) = {
+  def testCallRpcServerFail(list: CallResult, clientNum: Int = 20, poolCount: Int = 100) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
+      val pool = PcpRpc.getPCClientPool(
+        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
+      )
+
       val client = Await.result(
         PcpRpc.getPCClient(
           port = server.getPort()
         ),
         15.seconds
       )
-      var count = 0
-      client.call(list) recover {
-        case e: Exception => {
-          count += 1
+
+      Future.sequence((1 to poolCount map { _ =>
+        var count = 0
+        pool.call(list) recover {
+          case e: Exception => {
+            count += 1
+          }
+        } map { _ =>
+          assert(count == 1)
         }
-      } map { _ =>
-        assert(count == 1)
+      }).toList) map { _ =>
+        pool.clean()
+      } recover {
+        case e: Exception => {
+          pool.clean()
+          throw e
+        }
       }
     }
 
-    Await.result(Future.sequence(1 to clientNum map { _ =>
-      clientCall()
-    }), 15.seconds)
-
-    server.close()
+    try {
+      Await.result(Future.sequence(1 to clientNum map { _ =>
+        clientCall()
+      }), 15.seconds)
+    } finally {
+      server.close()
+    }
   }
 
   test("base") {
@@ -91,7 +118,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
   test("exception") {
     val p = new PcpClient()
     testCallRpcServerFail(p.call("testException"))
-  } 
+  }
 
   test("missing box function") {
     val p = new PcpClient()

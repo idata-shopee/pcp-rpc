@@ -9,8 +9,9 @@ import scala.annotation.tailrec
 case class PackageProtocol(headerLen: Int = 10) {
   private var bufferBuilder = new StringBuilder
 
-  def sendPackage(conn: ConnectionHandler, text: String) =
+  def sendPackage(conn: ConnectionHandler, text: String) = synchronized {
     conn.sendMessage(textToPktMsg(text))
+  }
 
   def textToPktMsg(text: String) = {
     val lenText = text.length.toString()
