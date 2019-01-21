@@ -3,11 +3,16 @@ package io.github.shopee.idata.pcprpc
 import io.github.shopee.idata.taskqueue.TimeoutScheduler
 import io.github.shopee.idata.pcp.{ BoxFun, CallResult, PcpClient, PcpServer, Sandbox }
 import java.net.InetSocketAddress
+import io.github.shopee.idata.sjson.JSON
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ Await, Future, Promise, duration }
 import duration._
+import scala.io
 
 class PcpRpcTest extends org.scalatest.FunSuite {
+  val BIG_STRING = (1 to 10000 map { _ =>
+    "hhhhsalkdksdk"
+  }).mkString("")
   val sandbox = new Sandbox(
     Map[String, BoxFun](
       // define add function
@@ -25,21 +30,29 @@ class PcpRpcTest extends org.scalatest.FunSuite {
         TimeoutScheduler.sleep(100) map { _ =>
           throw new Exception("test rpc exception.")
         }
+      }),
+      "bigConfig" -> Sandbox.toSanboxFun((params: List[Any], pcs: PcpServer) => {
+        Future {
+          JSON.parse(io.Source.fromResource("test.json").getLines.toList.mkString(""))
+        }
+      }),
+      "bigString" -> Sandbox.toSanboxFun((params: List[Any], pcs: PcpServer) => {
+        BIG_STRING
       })
     )
   )
 
   def testCallRpcServer(list: CallResult,
                         expect: Any,
-                        clientNum: Int = 30,
-                        poolCount: Int = 100) = {
+                        clientNum: Int = 20,
+                        poolReqCount: Int = 30) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
       val pool = PcpRpc.getPCClientPool(
         getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
       )
-      Future.sequence((1 to poolCount map { _ =>
+      Future.sequence((1 to poolReqCount map { _ =>
         pool.call(list) map { result =>
           assert(result == expect)
         }
@@ -62,7 +75,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
     }
   }
 
-  def testCallRpcServerFail(list: CallResult, clientNum: Int = 20, poolCount: Int = 100) = {
+  def testCallRpcServerFail(list: CallResult, clientNum: Int = 20, poolReqCount: Int = 100) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
@@ -77,7 +90,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
         15.seconds
       )
 
-      Future.sequence((1 to poolCount map { _ =>
+      Future.sequence((1 to poolReqCount map { _ =>
         var count = 0
         pool.call(list) recover {
           case e: Exception => {
@@ -123,5 +136,15 @@ class PcpRpcTest extends org.scalatest.FunSuite {
   test("missing box function") {
     val p = new PcpClient()
     testCallRpcServerFail(p.call("fakkkkkkkkkk"))
+  }
+
+  test("big config") {
+    val p = new PcpClient()
+    testCallRpcServerFail(p.call("bigConfig"), poolReqCount = 100)
+  }
+
+  test("big string") {
+    val p = new PcpClient()
+    testCallRpcServer(p.call("bigString"), BIG_STRING)
   }
 }

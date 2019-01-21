@@ -127,11 +127,17 @@ object ComputingConnection {
               val commandPkt = stringToCommand(text)
 
               commandPkt.ctype match {
+                // handle request type package
                 case REQUEST_C_TYPE =>
                   getResponseCommand(executeRequestCommand(commandPkt, pureCallServer),
                                      commandPkt.id) map commandToText map { text =>
-                    packageProtocol.sendPackage(conn, text)
+                    packageProtocol.sendPackage(conn, text) recover {
+                      case e: Exception => {
+                        throw new Exception(s"fail to send package. ${e}")
+                      }
+                    }
                   }
+                // handle response type package
                 case RESPONSE_C_TYPE =>
                   handleResponsePkt(commandPkt)
                 case _ =>

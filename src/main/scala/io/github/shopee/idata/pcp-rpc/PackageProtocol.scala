@@ -5,13 +5,50 @@ import java.io.{ PrintWriter, StringWriter }
 import io.github.shopee.idata.saio.{ ConnectionHandler }
 import scala.collection.mutable.ListBuffer
 import scala.annotation.tailrec
+import scala.concurrent.{ ExecutionContext, Future, Promise }
+import scala.collection.mutable.SynchronizedQueue
+import java.util.concurrent.atomic.{ AtomicBoolean }
 
 case class PackageProtocol(headerLen: Int = 10) {
   private var bufferBuilder = new StringBuilder
 
-  def sendPackage(conn: ConnectionHandler, text: String) = synchronized {
-    conn.sendMessage(textToPktMsg(text))
+  case class PktPromise(text: String, p: Promise[Any])
+  private val pktQueue = new SynchronizedQueue[PktPromise]()
+
+  def sendPackage(conn: ConnectionHandler,
+                  text: String)(implicit ec: ExecutionContext): Future[Any] = synchronized {
+    val p = Promise[Any]
+
+    pktQueue.enqueue(PktPromise(text, p))
+    consumePkts(conn: ConnectionHandler)
+
+    p.future
   }
+
+  val isProcessing = new AtomicBoolean(false)
+
+  private def consumePkts(conn: ConnectionHandler)(implicit ec: ExecutionContext): Unit =
+    // get lock and lock on
+    if (isProcessing.compareAndSet(false, true)) {
+      if (pktQueue.length > 0) {
+        val item = pktQueue.dequeue()
+
+        conn.sendMessage(textToPktMsg(item.text)) map { v =>
+          item.p trySuccess v
+          isProcessing.set(false) // release
+
+          consumePkts(conn)
+        } recover {
+          case e: Exception =>
+            item.p tryFailure e
+            KLog.logErr("send-package-error", e)
+            isProcessing.set(false) // release
+            consumePkts(conn)
+        }
+      } else {
+        isProcessing.set(false) // release
+      }
+    }
 
   def textToPktMsg(text: String) = {
     val lenText = text.length.toString()
