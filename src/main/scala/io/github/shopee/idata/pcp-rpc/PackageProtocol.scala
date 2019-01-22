@@ -9,8 +9,7 @@ import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.collection.mutable.SynchronizedQueue
 import java.util.concurrent.atomic.{ AtomicBoolean }
 
-case class PackageProtocol(headerLen: Int = 10) {
-  private var bufferBuilder = new StringBuilder
+case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 300) {
 
   case class PktPromise(text: String, p: Promise[Any])
   private val pktQueue = new SynchronizedQueue[PktPromise]()
@@ -19,7 +18,17 @@ case class PackageProtocol(headerLen: Int = 10) {
                   text: String)(implicit ec: ExecutionContext): Future[Any] = synchronized {
     val p = Promise[Any]
 
-    pktQueue.enqueue(PktPromise(text, p))
+    val pktText = textToPktMsg(text)
+    val len     = pktText.length
+
+    0 to Math.floor(len.toDouble / stringChunkSize.toDouble).toInt foreach { index =>
+      pktQueue.enqueue(
+        PktPromise(pktText.substring(index * stringChunkSize,
+                                     Math.min((index + 1) * stringChunkSize, len)),
+                   p)
+      )
+    }
+
     consumePkts(conn: ConnectionHandler)
 
     p.future
@@ -33,7 +42,7 @@ case class PackageProtocol(headerLen: Int = 10) {
       if (pktQueue.length > 0) {
         val item = pktQueue.dequeue()
 
-        conn.sendMessage(textToPktMsg(item.text)) map { v =>
+        conn.sendMessage(item.text) map { v =>
           item.p trySuccess v
           isProcessing.set(false) // release
 
@@ -60,8 +69,11 @@ case class PackageProtocol(headerLen: Int = 10) {
     ("0" * (headerLen - lenText.length) + lenText) + text
   }
 
+  private var bufferBuilder = new StringBuilder
+
   def getPktText(data: Array[Byte]): List[String] =
     this.synchronized {
+      val text = new String(data, "UTF-8")
       bufferBuilder.append(new String(data, "UTF-8"))
 
       try {
@@ -102,6 +114,7 @@ case class PackageProtocol(headerLen: Int = 10) {
         // update buffer
         // buffer = buffer.slice(pktLen, buffer.length)
         bufferBuilder = new StringBuilder(bufferBuilder.substring(pktLen, bufferBuilder.length))
+
         Some(pkt)
       } else {
         None
