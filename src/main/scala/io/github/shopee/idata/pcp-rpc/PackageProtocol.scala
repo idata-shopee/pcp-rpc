@@ -9,7 +9,7 @@ import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.collection.mutable.SynchronizedQueue
 import java.util.concurrent.atomic.{ AtomicBoolean }
 
-case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 300) {
+case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 50) {
 
   case class PktPromise(text: String, p: Promise[Any])
   private val pktQueue = new SynchronizedQueue[PktPromise]()
