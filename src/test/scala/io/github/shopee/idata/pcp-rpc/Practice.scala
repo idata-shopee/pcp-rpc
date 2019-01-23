@@ -43,7 +43,7 @@ class PracticeTest extends org.scalatest.FunSuite {
     try {
       val p = new PcpClient()
       Await.result(Future.sequence(
-                     (1 to 100 map { _ =>
+                     (1 to 1000 map { _ =>
                        pool.call(p.call("bigString")) map { result =>
                          assert(result == BIG_STRING)
                        }
@@ -63,7 +63,7 @@ class PracticeTest extends org.scalatest.FunSuite {
 
     try {
       val p = new PcpClient()
-      Await.result(Future.sequence((1 to 100 map { _ =>
+      Await.result(Future.sequence((1 to 1000 map { _ =>
         pool.call(p.call("bigString2")) map { result =>
           assert(result == BIG_STRING2)
         }
@@ -82,7 +82,7 @@ class PracticeTest extends org.scalatest.FunSuite {
     try {
       val p = new PcpClient()
       Await.result(Future.sequence(
-                     (1 to 100 map { _ =>
+                     (1 to 1000 map { _ =>
                        pool.call(p.call("bigString3")) map { result =>
                          assert(result == BIG_STRING3)
                        }

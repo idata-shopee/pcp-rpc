@@ -1,6 +1,7 @@
 package io.github.shopee.idata.pcprpc
 
 import io.github.shopee.idata.klog.KLog
+import java.nio.ByteBuffer
 import java.io.{ PrintWriter, StringWriter }
 import io.github.shopee.idata.saio.{ ConnectionHandler }
 import scala.collection.mutable.ListBuffer
@@ -9,28 +10,23 @@ import scala.concurrent.{ ExecutionContext, Future, Promise }
 import scala.collection.mutable.SynchronizedQueue
 import java.util.concurrent.atomic.{ AtomicBoolean }
 
-case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 50) {
+case class PackageProtocol() {
 
-  case class PktPromise(text: String, p: Promise[Any])
+  /**
+    * Bytes: 0          1     2    3    4
+    *      version     [    Long Size    ]
+    */
+  val headerLen: Int = 5
+
+  case class PktPromise(data: Array[Byte], p: Promise[Any])
   private val pktQueue = new SynchronizedQueue[PktPromise]()
 
   def sendPackage(conn: ConnectionHandler,
                   text: String)(implicit ec: ExecutionContext): Future[Any] = synchronized {
-    val p = Promise[Any]
-
-    val pktText = textToPktMsg(text)
-    val len     = pktText.length
-
-    0 to Math.floor(len.toDouble / stringChunkSize.toDouble).toInt foreach { index =>
-      pktQueue.enqueue(
-        PktPromise(pktText.substring(index * stringChunkSize,
-                                     Math.min((index + 1) * stringChunkSize, len)),
-                   p)
-      )
-    }
-
+    val p   = Promise[Any]
+    val pkt = textToPkt(text)
+    pktQueue.enqueue(PktPromise(pkt, p))
     consumePkts(conn: ConnectionHandler)
-
     p.future
   }
 
@@ -42,7 +38,7 @@ case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 50) {
       if (pktQueue.length > 0) {
         val item = pktQueue.dequeue()
 
-        conn.sendMessage(item.text) map { v =>
+        conn.sendBytes(ByteBuffer.wrap(item.data)) map { v =>
           item.p trySuccess v
           isProcessing.set(false) // release
 
@@ -59,31 +55,31 @@ case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 50) {
       }
     }
 
-  def textToPktMsg(text: String) = {
-    val lenText = text.length.toString()
+  def textToPkt(text: String): Array[Byte] = {
+    val textBytes      = text.getBytes("UTF-8")
+    val lenOfTextBytes = textBytes.length
 
-    if (lenText.length > headerLen) { // digits
-      throw new Exception("package size is out of limit.")
-    }
-
-    ("0" * (headerLen - lenText.length) + lenText) + text
+    // version + length + reserved + textBytes
+    Array[Byte](0) ++ ByteBuffer.allocate(4).putInt(lenOfTextBytes).array() ++ textBytes
   }
 
-  private var bufferBuilder = new StringBuilder
+  private var bufferBuilder = ListBuffer[Byte]()
 
   def getPktText(data: Array[Byte]): List[String] =
     this.synchronized {
-      val text = new String(data, "UTF-8")
-      bufferBuilder.append(new String(data, "UTF-8"))
+      // put data into buffer
+      data.foreach((byte) => {
+        bufferBuilder.append(byte)
+      })
 
       try {
         getPkt(ListBuffer[String]()).toList
       } catch {
         case e: Exception => {
           // clear builder
-          bufferBuilder = new StringBuilder
+          bufferBuilder = ListBuffer[Byte]()
           KLog.logErr(
-            "pkt-parse-error",
+            "unpkt-error",
             new Exception(
               s"parse pkt fail. ErrMsg: ${getErrorMessage(e)}. Text: ${new String(data, "UTF-8")}"
             )
@@ -103,19 +99,18 @@ case class PackageProtocol(headerLen: Int = 10, stringChunkSize: Int = 50) {
     }
 
   private def getSinglePkt(): Option[String] =
-    if (bufferBuilder.length < headerLen) None
+    if (bufferBuilder.length <= headerLen) None
     else {
-      val header  = bufferBuilder.substring(0, headerLen)
-      val bodyLen = header.toInt
-      val pktLen  = bodyLen + headerLen
+      // TODO header version
+      // index 1 to 5 bytes as pkt length
+      val bodyLen = ByteBuffer.wrap(bufferBuilder.slice(1, 5).toArray).getInt()
+      val pktLen  = headerLen + bodyLen
 
-      if (bufferBuilder.length >= pktLen) {
-        val pkt = bufferBuilder.substring(headerLen, pktLen)
+      if (bufferBuilder.length >= pktLen) { // pkt all recieved
+        val pkt = bufferBuilder.slice(headerLen, pktLen.toInt)
         // update buffer
-        // buffer = buffer.slice(pktLen, buffer.length)
-        bufferBuilder = new StringBuilder(bufferBuilder.substring(pktLen, bufferBuilder.length))
-
-        Some(pkt)
+        bufferBuilder = bufferBuilder.slice(pktLen.toInt, bufferBuilder.length)
+        Some(new String(pkt.toArray, "UTF-8"))
       } else {
         None
       }
