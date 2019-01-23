@@ -45,7 +45,8 @@ class PcpRpcTest extends org.scalatest.FunSuite {
   def testCallRpcServer(list: CallResult,
                         expect: Any,
                         clientNum: Int = 20,
-                        poolReqCount: Int = 30) = {
+                        poolReqCount: Int = 30,
+                        timeout: Int = 30) = {
     val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
@@ -69,7 +70,7 @@ class PcpRpcTest extends org.scalatest.FunSuite {
     try {
       Await.result(Future.sequence(1 to clientNum map { _ =>
         clientCall()
-      }), 15.seconds)
+      }), timeout.seconds)
     } finally {
       server.close()
     }
