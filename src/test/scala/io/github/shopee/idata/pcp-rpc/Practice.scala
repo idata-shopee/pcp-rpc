@@ -49,7 +49,7 @@ class PracticeTest extends org.scalatest.FunSuite {
                        }
                      }).toList
                    ),
-                   15.seconds)
+                   30.seconds)
     } finally {
       server.close()
     }
@@ -67,7 +67,7 @@ class PracticeTest extends org.scalatest.FunSuite {
         pool.call(p.call("bigString2")) map { result =>
           assert(result == BIG_STRING2)
         }
-      }).toList), 15.seconds)
+      }).toList), 30.seconds)
     } finally {
       server.close()
     }
@@ -88,7 +88,7 @@ class PracticeTest extends org.scalatest.FunSuite {
                        }
                      }).toList
                    ),
-                   15.seconds)
+                   30.seconds)
     } finally {
       server.close()
     }
