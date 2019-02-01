@@ -4,6 +4,7 @@ class PackageProtocolTest extends org.scalatest.FunSuite {
   test("textToPkt") {
     val packageProtocol = PackageProtocol()
 
+    assert(Array[Byte](0, 0, 0, 0, 5, 104, 101, 108, 108, 111).toList == packageProtocol.textToPkt("hello").toList)
     val text = "hello world!"
     assert(
       packageProtocol.textToPkt(text).toList == (Array(0, 0, 0, 0, text.length) ++ text
