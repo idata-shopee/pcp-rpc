@@ -1,5 +1,6 @@
 package io.github.shopee.idata.pcprpc
 
+import io.github.shopee.idata.pcpstream.{ StreamClient }
 import io.github.shopee.idata.pcp.{ CallResult, PcpClient, PcpServer, Sandbox }
 import io.github.shopee.idata.taskqueue.TimeoutScheduler
 import java.io.{ PrintWriter, StringWriter }
@@ -35,8 +36,9 @@ object ComputingConnection {
   }
 
   // package backend result into response command
-  private def getResponseCommand(result: Future[_],
-                                 id: String)(implicit ec: ExecutionContext): Future[CommandPkt] =
+  private def getResponseCommand(result: Future[_], id: String)(
+      implicit ec: ExecutionContext
+  ): Future[CommandPkt] =
     result map { item =>
       CommandPkt(id, RESPONSE_C_TYPE, new CommandData(item))
     } recover {
@@ -92,12 +94,13 @@ object ComputingConnection {
   case class PureCallConnection(
       connection: AIOConnection.Connection,
       onClose: (Exception) => _ = (e: Exception) => {},
-      sandbox: Sandbox
+      sandbox: Sandbox,
+      streamClient: StreamClient
   )(implicit ec: ExecutionContext) {
     private val packageProtocol           = PackageProtocol()
     private val remoteCallMap             = new ConcurrentHashMap[String, Promise[Any]]().asScala
     private val pureCallServer: PcpServer = new PcpServer(sandbox)
-    private val pcpClient                 = new PcpClient()
+    val pcpClient                         = new PcpClient()
 
     // notify
     private def handleResponsePkt(commandPkt: CommandPkt): Unit =
@@ -112,42 +115,45 @@ object ComputingConnection {
           ))
         }
       } else {
-        KLog.logErr("missing-pkt-id",
-                    new Exception(s"can not find id ${commandPkt.id} for purecall response data."))
+        KLog.logErr(
+          "missing-pkt-id",
+          new Exception(s"can not find id ${commandPkt.id} for purecall response data.")
+        )
         throw new Exception(s"can not find id ${commandPkt.id} for purecall response data.")
       }
 
     private val conn: ConnectionHandler = ConnectionHandler(
       connection = connection,
       onData = (chunk: Array[Byte]) => {
-        packageProtocol.getPktText(chunk) map {
-          text =>
-            // none-blocking on data
-            Future {
-              val commandPkt = stringToCommand(text)
+        packageProtocol.getPktText(chunk) map { text =>
+          // none-blocking on data
+          Future {
+            val commandPkt = stringToCommand(text)
 
-              commandPkt.ctype match {
-                // handle request type package
-                case REQUEST_C_TYPE =>
-                  getResponseCommand(executeRequestCommand(commandPkt, pureCallServer),
-                                     commandPkt.id) map commandToText map { text =>
-                    packageProtocol.sendPackage(conn, text) recover {
-                      case e: Exception => {
-                        throw new Exception(s"fail to send package. ${e}")
-                      }
+            commandPkt.ctype match {
+              // handle request type package
+              case REQUEST_C_TYPE =>
+                getResponseCommand(
+                  executeRequestCommand(commandPkt, pureCallServer),
+                  commandPkt.id
+                ) map commandToText map { text =>
+                  packageProtocol.sendPackage(conn, text) recover {
+                    case e: Exception => {
+                      throw new Exception(s"fail to send package. ${e}")
                     }
                   }
-                // handle response type package
-                case RESPONSE_C_TYPE =>
-                  handleResponsePkt(commandPkt)
-                case _ =>
-                  KLog.logErr(
-                    "unknown-pkt-type",
-                    new Exception(s"unknown type of package. Type is ${commandPkt.ctype}")
-                  )
-                  throw new Exception(s"unknown type of package. Type is ${commandPkt.ctype}")
-              }
+                }
+              // handle response type package
+              case RESPONSE_C_TYPE =>
+                handleResponsePkt(commandPkt)
+              case _ =>
+                KLog.logErr(
+                  "unknown-pkt-type",
+                  new Exception(s"unknown type of package. Type is ${commandPkt.ctype}")
+                )
+                throw new Exception(s"unknown type of package. Type is ${commandPkt.ctype}")
             }
+          }
         }
       },
       onClose = onClose
@@ -194,7 +200,8 @@ object ComputingConnection {
   def createPureCallHandler(
       connection: AIOConnection.Connection,
       onClose: (Exception) => _ = (e: Exception) => {},
-      sandbox: Sandbox
+      sandbox: Sandbox,
+      streamClient: StreamClient
   )(implicit ec: ExecutionContext): PureCallConnection =
-    PureCallConnection(connection, onClose, sandbox)
+    PureCallConnection(connection, onClose, sandbox, streamClient)
 }

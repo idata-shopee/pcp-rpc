@@ -21,8 +21,9 @@ case class PackageProtocol() {
   case class PktPromise(data: Array[Byte], p: Promise[Any])
   private val pktQueue = new SynchronizedQueue[PktPromise]()
 
-  def sendPackage(conn: ConnectionHandler,
-                  text: String)(implicit ec: ExecutionContext): Future[Any] = synchronized {
+  def sendPackage(conn: ConnectionHandler, text: String)(
+      implicit ec: ExecutionContext
+  ): Future[Any] = synchronized {
     val p   = Promise[Any]
     val pkt = textToPkt(text)
     pktQueue.enqueue(PktPromise(pkt, p))

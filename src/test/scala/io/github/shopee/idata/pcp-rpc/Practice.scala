@@ -35,30 +35,34 @@ class PracticeTest extends org.scalatest.FunSuite {
   )
 
   test("string with special chars1") {
-    val server = PcpRpc.getPCServer(sandbox = sandbox)
+    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
     val pool = PcpRpc.getPCClientPool(
-      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
+      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
+      generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
     )
 
     try {
       val p = new PcpClient()
-      Await.result(Future.sequence(
-                     (1 to 1000 map { _ =>
-                       pool.call(p.call("bigString")) map { result =>
-                         assert(result == BIG_STRING)
-                       }
-                     }).toList
-                   ),
-                   30.seconds)
+      Await.result(
+        Future.sequence(
+          (1 to 1000 map { _ =>
+            pool.call(p.call("bigString")) map { result =>
+              assert(result == BIG_STRING)
+            }
+          }).toList
+        ),
+        30.seconds
+      )
     } finally {
       server.close()
     }
   }
 
   test("string with special chars2") {
-    val server = PcpRpc.getPCServer(sandbox = sandbox)
+    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
     val pool = PcpRpc.getPCClientPool(
-      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
+      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
+      generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
     )
 
     try {
@@ -74,21 +78,24 @@ class PracticeTest extends org.scalatest.FunSuite {
   }
 
   test("string with special chars3") {
-    val server = PcpRpc.getPCServer(sandbox = sandbox)
+    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
     val pool = PcpRpc.getPCClientPool(
-      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
+      getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
+      generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
     )
 
     try {
       val p = new PcpClient()
-      Await.result(Future.sequence(
-                     (1 to 1000 map { _ =>
-                       pool.call(p.call("bigString3")) map { result =>
-                         assert(result == BIG_STRING3)
-                       }
-                     }).toList
-                   ),
-                   30.seconds)
+      Await.result(
+        Future.sequence(
+          (1 to 1000 map { _ =>
+            pool.call(p.call("bigString3")) map { result =>
+              assert(result == BIG_STRING3)
+            }
+          }).toList
+        ),
+        30.seconds
+      )
     } finally {
       server.close()
     }

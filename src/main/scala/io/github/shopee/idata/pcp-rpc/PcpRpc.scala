@@ -6,28 +6,68 @@ import reflect.runtime.universe._
 import io.github.shopee.idata.sjson.JSON
 import scala.concurrent.{ ExecutionContext, Future }
 import io.github.shopee.idata.spool.{ Item, Pool }
+import io.github.shopee.idata.pcpstream.{ StreamClient, StreamServer }
 
 object PcpRpc {
+  val STREAM_ACCEPT_NAME = "__stream_accept"
+
+  // use context to generate sandbox
+  type GenerateSandbox = (StreamServer[Future[_]]) => Sandbox
+  type OnClose         = (Exception) => _
+
+  val defOnClose         = (e: Exception) => {}
+  val defGenerateSandbox = (streamServer: StreamServer[Future[_]]) => new Sandbox(Map[String, BoxFun]())
+
+  def GetPcpConnectionHandlerFromTcpConn(
+      generateSandbox: GenerateSandbox,
+      connection: AIOConnection.Connection,
+      onClose: OnClose = defOnClose
+  )(implicit ec: ExecutionContext): ComputingConnection.PureCallConnection = {
+    // create stream object
+    val streamClient = StreamClient()
+
+    lazy val streamServer: StreamServer[Future[_]] = StreamServer[Future[_]](
+      STREAM_ACCEPT_NAME,
+      (command: String, timeout: Int) => pcpConnection.callRemote(command, timeout)
+    )
+
+    lazy val pcpConnection = ComputingConnection.createPureCallHandler(
+      connection = connection,
+      sandbox = new Sandbox(
+        Map[String, BoxFun](
+          STREAM_ACCEPT_NAME -> streamClient.getPcpStreamAcceptBoxFun()
+        ) ++ generateSandbox(streamServer).funMap
+      ),
+      onClose = (err: Exception) => {
+        // clean stream client when connection closed
+        streamClient.clean()
+        onClose(err)
+      },
+      streamClient = streamClient
+    )
+
+    pcpConnection
+  }
+
   def getPCServer(
       hostname: String = "0.0.0.0",
       port: Int = 0,
-      sandbox: Sandbox
+      generateSandbox: GenerateSandbox
   )(implicit ec: ExecutionContext) =
     AIO.getTcpServer(hostname, port, (connection: AIOConnection.Connection) => {
-      ComputingConnection.createPureCallHandler(connection = connection, sandbox = sandbox)
+      GetPcpConnectionHandlerFromTcpConn(generateSandbox, connection)
     })
 
   def getPCClient(
       hostname: String = "localhost",
       port: Int = 8000,
-      onClose: (Exception) => _ = (e: Exception) => {},
+      generateSandbox: GenerateSandbox = defGenerateSandbox,
+      onClose: OnClose = defOnClose
   )(
       implicit ec: ExecutionContext
   ): Future[ComputingConnection.PureCallConnection] =
     AIO.getTcpClient(hostname, port) map { conn =>
-      ComputingConnection.createPureCallHandler(connection = conn,
-                                                onClose = onClose,
-                                                sandbox = new Sandbox(Map[String, BoxFun]()))
+      GetPcpConnectionHandlerFromTcpConn(generateSandbox, conn, onClose)
     }
 
   // try to use pool to manage
@@ -35,18 +75,23 @@ object PcpRpc {
   // can get server address dynamicly in a pool
   type GetServerAddress = () => Future[ServerAddress]
 
-  case class ClientPool(getServerAddress: GetServerAddress,
-                        sandbox: Sandbox = new Sandbox(Map[String, BoxFun]()),
-                        RETRY_TIME: Int = 2000,
-                        POOL_SIZE: Int = 8)(implicit ec: ExecutionContext) {
+  case class ClientPool(
+      getServerAddress: GetServerAddress,
+      generateSandbox: GenerateSandbox = defGenerateSandbox,
+      RETRY_TIME: Int = 2000,
+      POOL_SIZE: Int = 8
+  )(implicit ec: ExecutionContext) {
     private def getNewConnection(
         onClose: () => _
     ): Future[Item[ComputingConnection.PureCallConnection]] =
       // 1st step: dynamically get the ip-port
       getServerAddress() flatMap { serverAddress =>
-        getPCClient(hostname = serverAddress.host,
-                    port = serverAddress.port,
-                    onClose = (e: Exception) => onClose()) map { client =>
+        getPCClient(
+          hostname = serverAddress.host,
+          port = serverAddress.port,
+          generateSandbox = generateSandbox,
+          onClose = (e: Exception) => onClose()
+        ) map { client =>
           Item(resource = client, clean = client.close)
         }
       }
@@ -55,9 +100,11 @@ object PcpRpc {
 
     def clean() = pool.stopPool()
 
-    def call(list: CallResult,
-             timeout: Int = 2 * 60 * 1000,
-             waitingTime: Int = 10 * 1000): Future[_] =
+    def call(
+        list: CallResult,
+        timeout: Int = 2 * 60 * 1000,
+        waitingTime: Int = 10 * 1000
+    ): Future[_] =
       pool.useItem[Any]((client) => client.call(list, timeout), waitingTime)
 
     def callTo[T: TypeTag](list: CallResult, timeout: Int = 120000, waitingTime: Int = 10 * 1000) =
@@ -66,9 +113,11 @@ object PcpRpc {
       }
   }
 
-  def getPCClientPool(getServerAddress: GetServerAddress,
-                      sandbox: Sandbox = new Sandbox(Map[String, BoxFun]()),
-                      RETRY_TIME: Int = 2000,
-                      POOL_SIZE: Int = 8)(implicit ec: ExecutionContext) =
-    ClientPool(getServerAddress, sandbox, RETRY_TIME, POOL_SIZE)
+  def getPCClientPool(
+      getServerAddress: GetServerAddress,
+      generateSandbox: GenerateSandbox,
+      RETRY_TIME: Int = 2000,
+      POOL_SIZE: Int = 8
+  )(implicit ec: ExecutionContext) =
+    ClientPool(getServerAddress, generateSandbox, RETRY_TIME, POOL_SIZE)
 }

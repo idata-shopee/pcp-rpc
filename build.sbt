@@ -1,6 +1,6 @@
 name := "pcp-rpc"
 organization := "io.github.idata-shopee"
-version := "0.0.8"
+version := "0.0.9"
 scalaVersion := "2.12.4"
 
 useGpg := true 
@@ -20,6 +20,7 @@ libraryDependencies ++= Seq(
 
   // pcp protocol
   "io.github.idata-shopee" %% "pcp" % "0.1.1",
+  "io.github.idata-shopee" %% "pcp-stream" % "0.0.2",
 
   // saio
   "io.github.idata-shopee" %% "saio" % "0.0.2",
