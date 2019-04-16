@@ -8,25 +8,30 @@ import duration._
 
 class StreamTest extends org.scalatest.FunSuite {
   test("stream: base") {
-    val server = PcpRpc.getPCServer(generateSandbox = (streamServer: StreamServer[Future[_]]) => {
-      new Sandbox(
-        Map[String, BoxFun](
-          "streamApi" -> streamServer.streamApi(
-            (streamProducer: StreamProducer[Future[_]], params: List[Any], pcpServer: PcpServer) => {
-              val seed = params(0).asInstanceOf[String]
+    val server =
+      PcpRpc.getPCHighServer(generateSandbox = (streamServer: StreamServer[Future[_]]) => {
+        new Sandbox(
+          Map[String, BoxFun](
+            "streamApi" -> streamServer.streamApi(
+              (
+                  streamProducer: StreamProducer[Future[_]],
+                  params: List[Any],
+                  pcpServer: PcpServer
+              ) => {
+                val seed = params(0).asInstanceOf[String]
 
-              streamProducer.sendData(seed + "1") map { _ =>
-                streamProducer.sendData(seed + "2") map { _ =>
-                  streamProducer.sendData(seed + "3") map { _ =>
-                    streamProducer.sendEnd()
+                streamProducer.sendData(seed + "1") map { _ =>
+                  streamProducer.sendData(seed + "2") map { _ =>
+                    streamProducer.sendData(seed + "3") map { _ =>
+                      streamProducer.sendEnd()
+                    }
                   }
                 }
               }
-            }
+            )
           )
         )
-      )
-    })
+      })
 
     val p = Promise[Any]()
 

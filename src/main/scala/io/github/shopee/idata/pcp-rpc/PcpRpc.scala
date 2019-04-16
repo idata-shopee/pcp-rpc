@@ -15,8 +15,9 @@ object PcpRpc {
   type GenerateSandbox = (StreamServer[Future[_]]) => Sandbox
   type OnClose         = (Exception) => _
 
-  val defOnClose         = (e: Exception) => {}
-  val defGenerateSandbox = (streamServer: StreamServer[Future[_]]) => new Sandbox(Map[String, BoxFun]())
+  val defOnClose = (e: Exception) => {}
+  val defGenerateSandbox = (streamServer: StreamServer[Future[_]]) =>
+    new Sandbox(Map[String, BoxFun]())
 
   def GetPcpConnectionHandlerFromTcpConn(
       generateSandbox: GenerateSandbox,
@@ -49,7 +50,7 @@ object PcpRpc {
     pcpConnection
   }
 
-  def getPCServer(
+  def getPCHighServer(
       hostname: String = "0.0.0.0",
       port: Int = 0,
       generateSandbox: GenerateSandbox
@@ -57,6 +58,13 @@ object PcpRpc {
     AIO.getTcpServer(hostname, port, (connection: AIOConnection.Connection) => {
       GetPcpConnectionHandlerFromTcpConn(generateSandbox, connection)
     })
+
+  def getPCServer(
+      hostname: String = "0.0.0.0",
+      port: Int = 0,
+      sandbox: Sandbox
+  )(implicit ec: ExecutionContext) =
+    getPCHighServer(hostname, port, (ss: StreamServer[Future[_]]) => sandbox)
 
   def getPCClient(
       hostname: String = "localhost",
@@ -115,7 +123,7 @@ object PcpRpc {
 
   def getPCClientPool(
       getServerAddress: GetServerAddress,
-      generateSandbox: GenerateSandbox,
+      generateSandbox: GenerateSandbox = defGenerateSandbox,
       RETRY_TIME: Int = 2000,
       POOL_SIZE: Int = 8
   )(implicit ec: ExecutionContext) =

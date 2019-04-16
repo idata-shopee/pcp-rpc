@@ -35,7 +35,7 @@ class PracticeTest extends org.scalatest.FunSuite {
   )
 
   test("string with special chars1") {
-    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
+    val server = PcpRpc.getPCServer(sandbox = sandbox)
     val pool = PcpRpc.getPCClientPool(
       getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
       generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
@@ -59,7 +59,7 @@ class PracticeTest extends org.scalatest.FunSuite {
   }
 
   test("string with special chars2") {
-    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
+    val server = PcpRpc.getPCServer(sandbox = sandbox)
     val pool = PcpRpc.getPCClientPool(
       getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
       generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
@@ -78,7 +78,7 @@ class PracticeTest extends org.scalatest.FunSuite {
   }
 
   test("string with special chars3") {
-    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
+    val server = PcpRpc.getPCServer(sandbox = sandbox)
     val pool = PcpRpc.getPCClientPool(
       getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
       generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())

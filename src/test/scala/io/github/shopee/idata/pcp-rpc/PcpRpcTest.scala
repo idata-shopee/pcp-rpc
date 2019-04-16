@@ -49,12 +49,11 @@ class PcpRpcTest extends org.scalatest.FunSuite {
       poolReqCount: Int = 30,
       timeout: Int = 30
   ) = {
-    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
+    val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
       val pool = PcpRpc.getPCClientPool(
-        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
-        generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
+        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
       )
       Future.sequence((1 to poolReqCount map { _ =>
         pool.call(list) map { result =>
@@ -80,18 +79,16 @@ class PcpRpcTest extends org.scalatest.FunSuite {
   }
 
   def testCallRpcServerFail(list: CallResult, clientNum: Int = 20, poolReqCount: Int = 100) = {
-    val server = PcpRpc.getPCServer(generateSandbox = (_) => sandbox)
+    val server = PcpRpc.getPCServer(sandbox = sandbox)
 
     val clientCall = () => {
       val pool = PcpRpc.getPCClientPool(
-        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) },
-        generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
+        getServerAddress = () => Future { PcpRpc.ServerAddress(port = server.getPort()) }
       )
 
       val client = Await.result(
         PcpRpc.getPCClient(
-          port = server.getPort(),
-          generateSandbox = (_) => new Sandbox(Map[String, BoxFun]())
+          port = server.getPort()
         ),
         15.seconds
       )
