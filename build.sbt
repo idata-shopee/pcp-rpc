@@ -1,5 +1,5 @@
 name := "pcp-rpc"
-organization := "io.github.idata-shopee"
+organization := "io.github.lock-free"
 version := "0.0.10"
 scalaVersion := "2.12.4"
 
@@ -10,23 +10,22 @@ publishTo := sonatypePublishTo.value
 
 libraryDependencies ++= Seq(
   // Log lib
-  "io.github.idata-shopee" %% "klog" % "0.1.0",
-
-  // taskqueue
-  "io.github.idata-shopee" %% "taskqueue" % "0.1.0",
+  "io.github.lock-free" %% "klog" % "0.1.0",
 
   // JSON lib
-  "io.github.idata-shopee" %% "sjson" % "0.1.5",
+  "io.github.lock-free" %% "sjson" % "0.2.0",
 
   // pcp protocol
-  "io.github.idata-shopee" %% "pcp" % "0.1.1",
-  "io.github.idata-shopee" %% "pcp-stream" % "0.0.2",
+  "io.github.lock-free" %% "pcp" % "0.1.1",
+  "io.github.lock-free" %% "pcp-stream" % "0.0.2",
 
   // saio
-  "io.github.idata-shopee" %% "saio" % "0.0.2",
+  "io.github.lock-free" %% "saio" % "0.0.2",
+
+  "io.netty" % "netty" % "3.7.0.Final",
 
   // spool lib
-  "io.github.idata-shopee" %% "spool" % "0.0.1",
+  "io.github.lock-free" %% "spool" % "0.0.1",
 
   // test suite
   "org.scalatest" %% "scalatest" % "3.0.1" % Test

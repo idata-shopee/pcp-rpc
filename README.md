@@ -5,8 +5,8 @@ A scala RPC based on pcp protocol
 ## Quick Example
 
 ```scala
-import io.github.shopee.idata.pcp.{ BoxFun, PcpClient, PcpServer, Sandbox }
-import io.github.shopee.idata.pcprpc.PcpRpc
+import io.github.free.lock.pcp.{ BoxFun, PcpClient, PcpServer, Sandbox }
+import io.github.free.lock.pcprpc.PcpRpc
 import scala.concurrent.ExecutionContext.Implicits.global
 
 val sandbox = new Sandbox(
@@ -37,8 +37,8 @@ PcpRpc.getPCClient(port = 5878) map { client =>
 ## Pool client example
 
 ```scala
-import io.github.shopee.idata.pcp.{ BoxFun, PcpClient, PcpServer, Sandbox }
-import io.github.shopee.idata.pcprpc.PcpRpc
+import io.github.free.lock.pcp.{ BoxFun, PcpClient, PcpServer, Sandbox }
+import io.github.free.lock.pcprpc.PcpRpc
 import scala.concurrent.ExecutionContext.Implicits.global
 
 val sandbox = new Sandbox(

@@ -1,7 +1,7 @@
-package io.github.shopee.idata.pcprpc
+package io.github.free.lock.pcprpc
 
-import io.github.shopee.idata.pcp.{ BoxFun, CallResult, PcpClient, PcpServer, Sandbox }
-import io.github.shopee.idata.pcpstream.{ PcpStream, StreamProducer, StreamServer }
+import io.github.free.lock.pcp.{ BoxFun, CallResult, PcpClient, PcpServer, Sandbox }
+import io.github.free.lock.pcpstream.{ PcpStream, StreamProducer, StreamServer }
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ Await, Future, Promise, duration }
 import duration._

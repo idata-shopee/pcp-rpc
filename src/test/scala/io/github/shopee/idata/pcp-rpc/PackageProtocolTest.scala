@@ -1,4 +1,4 @@
-package io.github.shopee.idata.pcprpc
+package io.github.free.lock.pcprpc
 
 class PackageProtocolTest extends org.scalatest.FunSuite {
   test("textToPkt") {
